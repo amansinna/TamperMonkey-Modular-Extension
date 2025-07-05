@@ -1,0 +1,21 @@
+{
+  "appName": "My Smart AI Suite",
+  "cssUrl": "https://example.com/my-app/styles.css",
+  "apiUrls": {
+    "checkAI": "https://api.example.com/ai/check"
+  },
+  "features": [
+    {
+      "name": "Analyze with AI",
+      "moduleUrl": "https://example.com/my-app/features/analyze.js"
+    },
+    {
+      "name": "Rewrite with AI",
+      "moduleUrl": "https://example.com/my-app/features/rewrite.js"
+    },
+    {
+      "name": "Evaluate CVSS",
+      "moduleUrl": "https://example.com/my-app/features/cvss.js"
+    }
+  ]
+}

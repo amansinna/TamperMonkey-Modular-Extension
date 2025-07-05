@@ -1,0 +1,226 @@
+✍️ Upgraded Core Example
+javascript
+Copy
+Edit
+// ==UserScript==
+// @name         Modular App with Feature Interaction
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Modular plug and play app with feature-core interaction
+// @match        *://*/*
+// @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
+// @connect      *
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    class CoreApp {
+        constructor(configUrl) {
+            this.configUrl = configUrl;
+            this.config = null;
+            this.features = [];
+            this.activeUrl = location.href;
+            this.store = {};
+            this.rootElement = null;
+        }
+
+        log(...args) {
+            console.log("%c[AI App]", "color: green; font-weight:bold;", ...args);
+        }
+
+        notify(msg) {
+            alert(msg);
+        }
+
+        setData(key, value) {
+            this.store[key] = value;
+        }
+
+        getData(key) {
+            return this.store[key];
+        }
+
+        async init() {
+            this.log("Loading config...");
+            this.config = await this.fetchJSON(this.configUrl);
+            if (!this.config) return this.log("Failed to load config!");
+
+            this.log("Loaded config:", this.config);
+
+            // Load CSS
+            if (this.config.cssUrl) this.loadCSS(this.config.cssUrl);
+
+            // Prepare core UI container
+            this.setupContainer();
+
+            // Check APIs
+            this.checkAPIs();
+
+            // Load features
+            await this.loadFeatures();
+
+            // Setup URL change monitoring
+            this.monitorURLChange();
+        }
+
+        fetchJSON(url) {
+            return new Promise(resolve => {
+                GM_xmlhttpRequest({
+                    method: "GET",
+                    url: url,
+                    onload: function(res) {
+                        try {
+                            resolve(JSON.parse(res.responseText));
+                        } catch(e) {
+                            console.error("Failed parsing JSON from", url, e);
+                            resolve(null);
+                        }
+                    },
+                    onerror: () => resolve(null)
+                });
+            });
+        }
+
+        loadCSS(url) {
+            GM_addStyle(`@import url('${url}');`);
+            this.log("CSS loaded:", url);
+        }
+
+        setupContainer() {
+            this.rootElement = document.createElement("div");
+            this.rootElement.id = "ai-app-container";
+            this.rootElement.style = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                width: 300px;
+                background: #f9f9f9;
+                border: 2px solid #ccc;
+                padding: 10px;
+                border-radius: 10px;
+                z-index: 10000;
+                font-family: sans-serif;
+            `;
+            this.rootElement.innerHTML = `<h4>${this.config.appName}</h4>`;
+            document.body.appendChild(this.rootElement);
+        }
+
+        addFeatureUI(name, element) {
+            let container = document.createElement("div");
+            container.style = "margin-top: 10px; padding: 5px; border-top: 1px dashed #aaa;";
+            container.innerHTML = `<strong>${name}</strong><br>`;
+            container.appendChild(element);
+            this.rootElement.appendChild(container);
+        }
+
+        async loadFeatures() {
+            for (let feature of this.config.features) {
+                this.log(`Loading feature module: ${feature.name}`);
+                try {
+                    let module = await import(/* webpackIgnore: true */ feature.moduleUrl);
+                    module.init(this);
+                    this.features.push({name: feature.name, module});
+                } catch (e) {
+                    console.error("Failed loading feature module", feature.moduleUrl, e);
+                }
+            }
+        }
+
+        async checkAPIs() {
+            if (this.config.apiUrls?.checkAI) {
+                try {
+                    let res = await fetch(this.config.apiUrls.checkAI);
+                    this.log("AI API status:", res.status);
+                } catch(e) {
+                    this.log("AI API check failed:", e);
+                }
+            }
+        }
+
+        monitorURLChange() {
+            setInterval(() => {
+                if (location.href !== this.activeUrl) {
+                    this.activeUrl = location.href;
+                    this.log("URL changed to", this.activeUrl);
+                    this.features.forEach(f => {
+                        if (f.module.onURLChange) {
+                            f.module.onURLChange(this.activeUrl, this);
+                        }
+                    });
+                }
+            }, 1000);
+        }
+    }
+
+    // Start app with your config URL
+    let coreApp = new CoreApp("https://example.com/my-app/config.json");
+    coreApp.init();
+
+})();
+🧩 Upgraded Feature Example: "Analyze with AI"
+The feature will:
+✅ Create a <textarea> and <button> inside the app container
+✅ Use core.notify to show alerts
+✅ Store data via core.setData / core.getData
+
+analyze.js:
+
+javascript
+Copy
+Edit
+export function init(core) {
+    core.log("Initializing 'Analyze with AI' feature");
+
+    let container = document.createElement("div");
+    let textarea = document.createElement("textarea");
+    textarea.rows = 4;
+    textarea.style = "width:100%;";
+    let btn = document.createElement("button");
+    btn.textContent = "Analyze Now";
+    btn.style = "margin-top:5px;";
+
+    btn.onclick = () => {
+        let text = textarea.value;
+        core.setData("lastAnalysis", text);
+        core.notify("Analysis done for: " + text);
+    };
+
+    container.appendChild(textarea);
+    container.appendChild(btn);
+
+    core.addFeatureUI("Analyze with AI", container);
+}
+
+export function onURLChange(url, core) {
+    core.log("'Analyze with AI' sees URL:", url);
+}
+🚀 This gives you
+✅ Access to all core methods from feature
+✅ Clean UI container, no more floating loose elements
+✅ Future features can use same interface:
+
+javascript
+Copy
+Edit
+export function init(core) {
+    let btn = document.createElement("button");
+    btn.textContent = "Do something";
+    btn.onclick = () => core.notify("Did it!");
+    core.addFeatureUI("My Feature", btn);
+}
+✅ Summary of final architecture
+What	Where	How
+App name, CSS, API checks, features list	config.json	Fully dynamic
+Common UI container	core.rootElement	All features add inside
+Utilities	core.notify / setData / getData	Direct access in all modules
+Feature plug	module.init(core) & onURLChange(url, core)	Can create any UI, call core helpers
+
+🎯 If you want, I can prepare:
+
+A tiny local server demo (using Python http.server) with HTML config + features.
+
+Or a template repo (features folder, config.json, core) to clone for future devs.
+
+Just tell me which you’d like! 🚀
